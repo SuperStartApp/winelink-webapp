@@ -29,7 +29,7 @@ function Profile({ user }) {
   if (!user) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center font-sans">
       <div className="text-6xl mb-4">🔐</div>
-      <h2 className="text-2xl font-bold text-wine-red mb-2">Area Riservata</h2>
+      <h2 className="text-2xl font-extrabold text-gray-800">{profile?.username || user.email}</h2>
       <p className="text-gray-500 mb-8">Accedi per sbloccare il tuo profilo e i tuoi badge.</p>
       <button onClick={() => window.location.href='/auth'} className="bg-wine-red text-white px-8 py-3 rounded-full font-bold">Accedi Ora</button>
     </div>

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { supabase } from './supabaseClient';
-import { useNavigate } from 'react-router-dom'; // Importiamo il navigatore
+import { useNavigate } from 'react-router-dom';
 
 function Auth({ onSession }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [userName, setUserName] = useState(''); // NUOVO: Stato per il nome
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate(); // Inizializziamo il navigatore
+  const navigate = useNavigate();
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -17,27 +18,28 @@ function Auth({ onSession }) {
 
     try {
       if (isSignUp) {
-        // Registrazione
+        // REGISTRAZIONE
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         
-        alert("Account creato con successo! Benvenuto in WineLink! 🍷✨");
+        // AGGIUNTA: Salviamo il nome nel profilo appena creato
+        if (data.user) {
+          await supabase.from('user_profiles').update({ username: userName }).eq('id', data.user.id);
+        }
         
-        // Se l'utente è stato creato e loggato automaticamente
+        alert("Account creato con successo! Benvenuto in WineLink! 🍷✨");
         if (data.session) {
           onSession(data.session.user);
-          navigate('/'); // Torna alla Home
+          navigate('/');
         }
       } else {
-        // Login
+        // LOGIN
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        
         alert("Accesso effettuato! Bentornato! 🍷");
-        
         if (data.session) {
           onSession(data.session.user);
-          navigate('/'); // Torna alla Home
+          navigate('/');
         }
       }
     } catch (err) {
@@ -60,6 +62,16 @@ function Auth({ onSession }) {
         {error && <div className="bg-red-100 text-red-600 p-3 rounded-xl text-sm mb-4 text-center font-bold">{error}</div>}
 
         <form onSubmit={handleAuth} className="space-y-4">
+          {isSignUp && (
+            <input
+              type="text"
+              placeholder="Il tuo Nome"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none"
+              required
+            />
+          )}
           <input
             type="email"
             placeholder="Email"
@@ -76,19 +88,13 @@ function Auth({ onSession }) {
             className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none"
             required
           />
-          <button
-            disabled={loading}
-            className="w-full bg-wine-red text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-opacity-90 transition-all"
-          >
+          <button disabled={loading} className="w-full bg-wine-red text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-opacity-90 transition-all">
             {loading ? 'Elaborazione...' : isSignUp ? 'Registrati' : 'Accedi'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-wine-red text-sm font-bold underline"
-          >
+          <button onClick={() => setIsSignUp(!isSignUp)} className="text-wine-red text-sm font-bold underline">
             {isSignUp ? 'Hai già un account? Accedi' : 'Non hai un account? Registrati'}
           </button>
         </div>
