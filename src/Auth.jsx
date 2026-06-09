@@ -1,29 +1,50 @@
 import { useState } from 'react';
 import { supabase } from './supabaseClient';
+import { useNavigate } from 'react-router-dom'; // Importiamo il navigatore
 
 function Auth({ onSession }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false); // Per switchare tra Login e Registrazione
+  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate(); // Inizializziamo il navigatore
 
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    if (isSignUp) {
-      // Registrazione
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else alert("Controlla la tua email per confermare l'account! 📧");
-    } else {
-      // Login
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+    try {
+      if (isSignUp) {
+        // Registrazione
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        
+        alert("Account creato con successo! Benvenuto in WineLink! 🍷✨");
+        
+        // Se l'utente è stato creato e loggato automaticamente
+        if (data.session) {
+          onSession(data.session.user);
+          navigate('/'); // Torna alla Home
+        }
+      } else {
+        // Login
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        
+        alert("Accesso effettuato! Bentornato! 🍷");
+        
+        if (data.session) {
+          onSession(data.session.user);
+          navigate('/'); // Torna alla Home
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
