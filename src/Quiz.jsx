@@ -14,13 +14,16 @@ function Quiz({ user }) {
   const [userCurrentLevel, setUserCurrentLevel] = useState(1);
 
   useEffect(() => {
-    fetchUserLevel();
+    loadUserProgress();
   }, [user]);
 
-  async function fetchUserLevel() {
+  async function loadUserProgress() {
     if (user) {
       const { data } = await supabase.from('user_profiles').select('current_level').eq('id', user.id).single();
-      if (data) setUserCurrentLevel(data.current_level);
+      if (data) setUserCurrentLevel(data.current_level || 1);
+    } else {
+      const localLvl = localStorage.getItem('guest_current_level');
+      if (localLvl) setUserCurrentLevel(parseInt(localLvl));
     }
   }
 
@@ -41,8 +44,11 @@ function Quiz({ user }) {
     setLoading(true);
     setLevel(lvl);
     const { data, error } = await supabase.from('quizzes').select('*').eq('level', lvl);
-    if (error) alert("Errore: " + error.message);
-    else setQuizzes(shuffleArray(data));
+    if (error) {
+      alert("Errore: " + error.message);
+    } else {
+      setQuizzes(shuffleArray(data));
+    }
     setLoading(false);
   };
 
@@ -70,6 +76,9 @@ function Quiz({ user }) {
         pending.push(badgeToWin);
         localStorage.setItem('pending_badges', JSON.stringify(pending));
       }
+      const nextLevel = level + 1;
+      localStorage.setItem('guest_current_level', nextLevel.toString());
+      setUserCurrentLevel(nextLevel);
     }
     setEarnedBadge(badgeToWin);
   };
@@ -85,13 +94,18 @@ function Quiz({ user }) {
     if (isAnswered) return;
     setSelectedAnswer(selectedOption);
     setIsAnswered(true);
-    if (selectedOption === quizzes[currentIndex].correct_option) setScore(prev => prev + 1);
+    if (selectedOption === quizzes[currentIndex].correct_option) {
+      setScore(prev => prev + 1);
+    }
     setTimeout(() => {
-      if (currentIndex + 1 < quizzes.length) {
-        setCurrentIndex(currentIndex + 1);
+      const nextQuestion = currentIndex + 1;
+      if (nextQuestion < quizzes.length) {
+        setCurrentIndex(nextQuestion);
         setIsAnswered(false);
         setSelectedAnswer(null);
-      } else setShowResult(true);
+      } else {
+        setShowResult(true);
+      }
     }, 1500);
   };
 
@@ -118,9 +132,7 @@ function Quiz({ user }) {
               <p className={`font-black text-lg ${item.lv <= userCurrentLevel ? 'text-gray-800' : 'text-gray-500'}`}>{item.name}</p>
               {item.lv > userCurrentLevel && <p className="text-[10px] font-bold text-red-400 uppercase">Bloccato 🔒</p>}
             </div>
-            <span className={`w-8 h-8 flex items-center justify-center rounded-full font-bold ${item.lv <= userCurrentLevel ? 'bg-gray-100 text-gray-400 group-hover:bg-wine-red group-hover:text-white' : 'bg-gray-300 text-gray-500'}`}>
-              {item.lv}
-            </span>
+            <span className={`w-8 h-8 flex items-center justify-center rounded-full font-bold ${item.lv <= userCurrentLevel ? 'bg-gray-100 text-gray-400 group-hover:bg-wine-red group-hover:text-white' : 'bg-gray-300 text-gray-500'}`}>{item.lv}</span>
           </button>
         ))}
       </div>
@@ -142,7 +154,9 @@ function Quiz({ user }) {
         )}
         <div className="space-y-3 w-full max-w-xs">
           <button onClick={() => window.location.reload()} className="w-full bg-wine-red text-white py-4 rounded-full font-bold shadow-lg">Torna alla Mappa</button>
-          {!user && isPassed && <button onClick={() => window.location.href='/auth'} className="w-full bg-wine-yellow text-wine-red py-3 rounded-full font-bold text-sm">Salva il tuo Badge nel Profilo 🔐</button>}
+          {!user && isPassed && (
+            <button onClick={() => window.location.href='/auth'} className="w-full bg-wine-yellow text-wine-red py-3 rounded-full font-bold text-sm">Salva il tuo Badge nel Profilo 🔐</button>
+          )}
         </div>
       </div>
     );
@@ -157,14 +171,14 @@ function Quiz({ user }) {
     const isCorrect = optionId === currentQuiz.correct_option;
     const isSelected = optionId === selectedAnswer;
     let base = "w-full text-left p-4 rounded-2xl border-2 transition-all duration-300 font-medium flex items-center gap-4 ";
-    if (!isAnswered) return base + "border-gray-100 hover:border-wine-yellow hover:bg-wine-yellow/5 text-gray-700";
+    if (!isAnswered) return base + "border-gray-100 hover:border-wine-yellow hover:bg-//yellow/5 text-gray-700";
     if (isCorrect) return base + "border-green-500 bg-green-100 text-green-700";
     if (isSelected && !isCorrect) return base + "border-red-500 bg-red-100 text-red-700";
     return base + "border-gray-100 text-gray-300 opacity-50";
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 font-// sans">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 font-sans">
       <div className="mb-10 text-center">
         <h2 className="text-wine-red font-extrabold text-2xl uppercase tracking-tighter">WineLink Academy</h2>
         <p className="text-xs text-gray-400 font-bold">LIVELLO {level} • {currentIndex + 1}/{quizzes.length}</p>

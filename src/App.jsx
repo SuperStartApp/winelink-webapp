@@ -13,7 +13,6 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 
 // --- COMPONENTE LAYOUT PRINCIPALE ---
-// Questo componente gestisce l'intestazione e la barra di navigazione in basso
 const MainLayout = ({ children, setActiveTab, activeTab, user, onLogout }) => (
   <div className="min-h-screen bg-gray-50">
     {/* Header superiore */}
@@ -31,10 +30,10 @@ const MainLayout = ({ children, setActiveTab, activeTab, user, onLogout }) => (
       )}
     </header>
 
-    {/* Area dei contenuti (cambia in base alla Tab attiva) */}
+    {/* Area dei contenuti */}
     <main>{children}</main>
 
-    {/* BARRA DI NAVIGAZIONE IN BASSO (Sempre visibile) */}
+    {/* BARRA DI NAVIGAZIONE IN BASSO */}
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-3 flex justify-around items-center shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
       <button 
         onClick={() => setActiveTab('academy')} 
@@ -71,7 +70,6 @@ const MainLayout = ({ children, setActiveTab, activeTab, user, onLogout }) => (
         <span className="text-[10px] font-bold uppercase">Profilo</span>
       </button>
 
-      {/* Se l'utente non è loggato, mostriamo un tasto rapido per l'Auth a lato o possiamo gestirlo via Profilo */}
       {!user && (
         <div className="absolute -top-12 right-4">
           <button 
@@ -86,7 +84,6 @@ const MainLayout = ({ children, setActiveTab, activeTab, user, onLogout }) => (
   </div>
 );
 
-// --- COMPONENTE PRINCIPALE APP ---
 function App() {
   const [activeTab, setActiveTab] = useState('academy');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -94,20 +91,18 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Verifica se l'utente ha già una sessione attiva all'avvio
     const getSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
       } catch (err) {
-        console.error("Errore durante il recupero della sessione:", err);
+        console.error("Errore sessione:", err);
       } finally {
         setLoading(false);
       }
     };
     getSession();
 
-    // 2. Ascolta i cambiamenti di stato (Login / Logout) in tempo reale
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -115,11 +110,10 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Funzione per effettuare il logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setActiveTab('academy'); // Riporta l'utente all'inizio
+    setActiveTab('academy');
   };
 
   if (loading) {
@@ -134,10 +128,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Rotta Principale: Gestisce tutte le Tab dell'utente */}
         <Route path="/" element={
           <MainLayout setActiveTab={setActiveTab} activeTab={activeTab} user={user} onLogout={handleLogout}>
-            {activeTab === 'academy' && <Quiz />}
+            {/* QUI PASSIAMO L'UTENTE A TUTTI I COMPONENTI */}
+            {activeTab === 'academy' && <Quiz user={user} />}
             {activeTab === 'wine' && <TastingJournal user={user} />}
             {activeTab === 'food' && <FoodJournal user={user} />}
             {activeTab === 'pair' && <PairingEngine user={user} />}
@@ -145,15 +139,12 @@ function App() {
           </MainLayout>
         } />
 
-        {/* Rotta Autenticazione (Login/Registrazione) */}
         <Route path="/auth" element={<Auth onSession={(u) => setUser(u)} />} />
 
-        {/* Rotta Area Amministratore */}
         <Route path="/admin" element={
           isAdmin ? <AdminDashboard /> : <AdminLogin setAdmin={setIsAdmin} />
         } />
 
-        {/* Gestione errori 404: se l'URL non esiste, torna alla Home */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
