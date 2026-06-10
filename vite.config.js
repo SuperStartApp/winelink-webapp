@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa' // Importa il plugin
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),
+    VitePWA({ 
+      registerType: 'autoUpdate',
+      manifest: false // Abbiamo già creato il manifest.json a mano, quindi mettiamo false qui
+    })
   ],
 })
