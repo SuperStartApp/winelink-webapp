@@ -115,7 +115,7 @@ function Quiz({ user }) {
   // VIEW: CATEGORIES
   if (view === 'categories') return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 font-sans">
-      <h2 className="text-3xl font-extrabold text-wine-red text-center mb-10">Scegli il tuo Modulo</h2>
+      <h2 className="text-3xl font-extrabold text-wine-red text-center mb-10">Scegli un Percorso</h2>
       <div className="grid grid-cols-1 gap-6 w-full max-w-xs">
         {CATEGORIES.map(cat => (
           <button 
