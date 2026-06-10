@@ -6,37 +6,34 @@ function Auth({ onSession }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userName, setUserName] = useState(''); // NUOVO: Stato per il nome
+  const [userName, setUserName] = useState('');
+  const [privacy, setPrivacy] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleAuth = async (e) => {
     e.preventDefault();
+    if (isSignUp && !privacy) return alert("Per favore, accetta l'informativa sulla privacy 🛡️");
+    
     setLoading(true);
     setError('');
 
     try {
       if (isSignUp) {
-        // REGISTRAZIONE
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        
-        // AGGIUNTA: Salviamo il nome nel profilo appena creato
         if (data.user) {
           await supabase.from('user_profiles').update({ username: userName }).eq('id', data.user.id);
         }
-        
         alert("Account creato con successo! Benvenuto in WineLink! 🍷✨");
         if (data.session) {
           onSession(data.session.user);
           navigate('/');
         }
       } else {
-        // LOGIN
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        alert("Accesso effettuato! Bentornato! 🍷");
         if (data.session) {
           onSession(data.session.user);
           navigate('/');
@@ -51,43 +48,26 @@ function Auth({ onSession }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-wine-red px-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-[2rem] shadow-2xl p-8">
-        <h2 className="text-3xl font-extrabold text-gray-800 text-center mb-2">
-          {isSignUp ? 'Crea il tuo Account' : 'Bentornato!'}
-        </h2>
-        <p className="text-gray-500 text-center mb-8 text-sm">
-          {isSignUp ? 'Inizia il tuo viaggio nel mondo del vino' : 'Accedi al tuo diario personale'}
-        </p>
+      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl p-8">
+        <h2 className="text-3xl font-extrabold text-gray-800 text-center mb-2">{isSignUp ? 'Crea Account' : 'Bentornato!'}</h2>
+        <p className="text-gray-500 text-center mb-8 text-sm">{isSignUp ? 'Unisciti alla nostra community' : 'Accedi al tuo diario personale'}</p>
 
         {error && <div className="bg-red-100 text-red-600 p-3 rounded-xl text-sm mb-4 text-center font-bold">{error}</div>}
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
-            <input
-              type="text"
-              placeholder="Il tuo Nome"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none"
-              required
-            />
+            <input type="text" placeholder="Il tuo Nome" value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none" required />
           )}
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none"
-            required
-          />
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none" required />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-//full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-wine-yellow outline-none" required />
+          
+          {isSignUp && (
+            <label className="flex items-center gap-3 p-2 cursor-pointer text-sm text-gray-600">
+              <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} className="w-4 h-4 accent-wine-red" />
+              <span>Accetto l'informativa sulla privacy 🛡️</span>
+            </label>
+          )}
+
           <button disabled={loading} className="w-full bg-wine-red text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-opacity-90 transition-all">
             {loading ? 'Elaborazione...' : isSignUp ? 'Registrati' : 'Accedi'}
           </button>
