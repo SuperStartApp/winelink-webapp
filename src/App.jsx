@@ -120,7 +120,7 @@ function App() {
             {activeTab === 'wine' && <TastingJournal user={user} />}
             {activeTab === 'food' && <FoodJournal user={user} />}
             {activeTab === 'pair' && <PairingEngine user={user} />}
-            {activeTab === 'profile' && <Profile user={user} />}
+            {activeTab === 'profile' && <Profile user={user} setActiveTab={setActiveTab} />}
           </MainLayout>
         } />
         <Route path="/auth" element={<Auth onSession={(u) => setUser(u)} />} />
