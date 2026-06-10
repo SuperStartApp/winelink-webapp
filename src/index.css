@@ -10,3 +10,4 @@
   /* Il tuo font Montserrat */
   --font-sans: "Montserrat", sans-serif;
 }
+body { background-color: red !important; }

@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite' // <--- AGGIUNGI QUESTO
 
-// Ho rimosso tutto quello che riguardava il plugin PWA
+// Abbiamo rimosso il plugin PWA per la massima stabilità
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    tailwindcss(), // <--- AGGIUNGI QUESTO
+  ],
 })
