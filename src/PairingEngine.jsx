@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 
-// --- COMPONENTE MODAL (UI Risultato) ---
 const PairingModal = ({ isOpen, onClose, result }) => {
   if (!isOpen || !result) return null;
 
@@ -19,43 +18,44 @@ const PairingModal = ({ isOpen, onClose, result }) => {
           <p className="text-xs font-bold uppercase tracking-widest opacity-70 mb-2">Risultato Abbinamento</p>
           <h3 className="text-5xl font-black mb-2">{result.score}<span className="text-xl opacity-60">/100</span></h3>
           <div className="text-xl font-extrabold mb-4 leading-tight">{result.title}</div>
-          
-          <div className="bg-white/50 rounded-2xl p-4 text-sm mb-6 text-left leading-relaxed">
-            {result.description}
-          </div>
-
+          <div className="bg-white/50 rounded-2xl p-4 text-sm mb-6 text-left leading-relaxed">{result.description}</div>
           <div className="bg-white/30 rounded-2xl p-4 text-sm mb-8 text-left italic border-l-4 border-current">
             <span className="font-bold block not-italic mb-1">💡 Consiglio del Sommelier:</span>
             {result.tip}
           </div>
-
-          <button 
-            onClick={onClose} 
-            className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
-          >
-            Chiudi Analisi
-          </button>
+          <button onClick={onClose} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform">Chiudi Analisi</button>
         </div>
       </div>
     </div>
   );
 };
 
-// --- MOTORE DI PAIRING (LOGICA CORE) ---
-function PairingEngine() {
+function PairingEngine({ user }) {
   const [wines, setWines] = useState([]);
   const [foods, setFoods] = useState([]);
   const [selectedWineId, setSelectedWineId] = useState('');
   const [selectedFoodId, setSelectedFoodId] = useState('');
+  const [wineSensoryData, setWineSensoryData] = useState(null); // Dati per il calcolo
   const [matchResult, setMatchResult] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (user) fetchData(); }, [user]);
 
   async function fetchData() {
     try {
-      const { data: wineData } = await supabase.from('tasting_logs').select('*');
-      const { data: foodData } = await supabase.from('food_logs').select('*');
+      // 🍇 PESCAGGIO VINI: Usiamo la VIEW e filtriamo per utente
+      const { data: wineData } = await supabase
+        .from('academy_all_wines')
+        .select('*')
+        .eq('user_id', user.id);
+
+      // 🍽️ PESCAGGIO CIBI: Filtriamo per utente
+      const { data: foodData } = await supabase
+        .from('food_logs')
+        .select('*')
+        .eq('user_id', user.id);
+
       setWines(wineData || []);
       setFoods(foodData || []);
     } catch (error) {
@@ -63,29 +63,49 @@ function PairingEngine() {
     }
   }
 
-  // Helper per recuperare valori dal DB gestendo eventuali nomi diversi
+  // FUNZIONE PONTE: Recupera l'ultima degustazione per avere i valori sensoriali
+  async function fetchWineSensoryProfile(wineId) {
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from('diar_tastings') // Usiamo la tabella delle degustazioni della Diary
+        .select('*')
+        .eq('wine_id', wineId)
+        .order('data_degustazione', { ascending: false })
+        .limit(1);
+      
+      setWineSensoryData(data && data.length > 0 ? data[0] : null);
+    } catch (e) {
+      console.error("Errore recupero profilo sensoriale:", e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (selectedWineId) fetchWineSensoryProfile(selectedWineId);
+    else setWineSensoryData(null);
+  }, [selectedWineId]);
+
   const getVal = (obj, ...names) => {
     for (let name of names) {
-      if (obj[name] !== undefined && obj[name] !== null) return obj[name];
+      if (obj && obj[name] !== undefined && obj[name] !== null) return obj[name];
     }
-    return 5; // Default centrale
+    return 5;
   };
 
   const calculatePairing = () => {
-    const wine = wines.find(w => w.id === selectedWineId);
     const food = foods.find(f => f.id === selectedFoodId);
-    if (!wine || !food) return;
+    const wine = wineSensoryData; // Usiamo i dati sensoriali pescati dal ponte
+    if (!wine || !food) {
+      alert("Per favore, scegli un vino che abbia almeno una nota di degustazione registrata.");
+      return;
+    }
 
-    /**
-     * LOGICA ENOLOGICA PROFESSIONALE (Metodo FIS)
-     * Definiamo le coppie di confronto. 
-     * Per i contrasti, l'obiettivo è che v1 (cibo) e v2 (vino) siano simili.
-     */
     const pairs = [
       { 
         label: 'Grassezza vs Freschezza', 
         v1: getVal(food, 'grassezza', 'fat'), 
-        // La grassezza si combatte con la media di acidità e tannicità
         v2: (getVal(wine, 'acidita', 'acidity') + getVal(wine, 'tannicita', 'tannicity')) / 2,
         type: 'contrast'
       },
@@ -98,7 +118,7 @@ function PairingEngine() {
       { 
         name: 'Dolcezza vs Dolcezza', 
         v1: getVal(food, 'dolcezza', 'sweetness'), 
-        v2: getVal(wine, 'dolcezza', 'sweetness'), // Fondamentale per il dessert!
+        v2: getVal(wine, 'dolcezza', 'sweetness'), 
         type: 'concordance' 
       },
       { 
@@ -115,64 +135,34 @@ function PairingEngine() {
       },
     ];
 
-    // Calcolo Punteggio: Più la differenza è vicina a 0, più il punteggio è alto.
-    // Ogni coppia può contribuire con max 20 punti (5 coppie * 20 = 100).
     let totalScore = 0;
     pairs.forEach(pair => {
       const diff = Math.abs(pair.v1 - pair.v2);
-      // Limitiamo la differenza massima a 10 per evitare punteggi negativi
       const scoreFromPair = Math.max(0, (10 - diff) * 2);
       totalScore += scoreFromPair;
     });
 
-    // Determinazione Categoria e Feedback (Basato sui tuoi testi)
     let result = {};
     if (totalScore >= 90) {
-      result = {
-        status: 'perfect',
-        score: Math.round(totalScore),
-        title: 'Abbinamento Eccellente 🌟',
-        description: 'Sinergia ideale tra piatto e calice. Le sensazioni si integrano reciprocamente, creando un perfetto equilibrio.',
-        tip: 'Un connubio di alto livello in cui il vino e il piatto si esaltano al massimo delle loro potenzialità.'
-      };
+      result = { status: 'perfect', score: Math.round(totalScore), title: 'Abbinamento Eccellente 🌟', description: 'Sinergia ideale tra piatto e calice. Le sensazioni si integrano reciprocamente.', tip: 'Un connubio di alto livello!' };
     } else if (totalScore >= 70) {
-      result = {
-        status: 'success',
-        score: Math.round(totalScore),
-        title: 'Abbinamento Armonico ✅',
-        description: 'Ottima sinergia. Le durezze del cibo sono ben compensate dalla morbidezza e dalla freschezza del vino.',
-        tip: 'È una scelta sicura che rispetta i principi della degustazione e garantisce un\'ottima esperienza.'
-      };
+      result = { status: 'success', score: Math.round(totalScore), title: 'Abbinamento Armonico ✅', description: 'Ottima sinergia. Le durezze del cibo sono ben compensate.', tip: 'È una scelta sicura.' };
     } else if (totalScore >= 50) {
-      result = {
-        status: 'warning',
-        score: Math.round(totalScore),
-        title: 'Abbinamento Accettabile 🆗',
-        description: 'Un accostamento sufficiente. Cibo e vino convivono senza darsi fastidio, ma manca la giusta sinergia.',
-        tip: 'Cerca di avvicinare l\'intensità del vino a quella del piatto: un cibo strutturato richiede un vino più complesso.'
-      };
+      result = { status: 'warning', score: Math.round(totalScore), title: 'Abbinamento Accettabile 🆗', description: 'Un accostamento sufficiente, ma manca la giusta sinergia.', tip: 'Prova a bilanciare meglio l\'intensità.' };
     } else {
-      result = {
-        status: 'danger',
-        score: Math.round(totalScore),
-        title: 'Abbinamento Disarmonico ⚠️',
-        description: 'Cibo e vino non si valorizzano o uno dei due copre l\'altro. Potrebbero crearsi sensazioni spiacevoli.',
-        tip: 'Prova un vino più fresco (acido) se il cibo è molto grasso, o uno più morbido se il piatto è troppo sapido.'
-      };
+      result = { status: 'danger', score: Math.round(totalScore), title: 'Abbinamento Disarmonico ⚠️', description: 'Cibo e vino non si valorizzano o uno dei due copre l\'altro.', tip: 'Prova un vino più fresco se il cibo è grasso.' };
     }
 
     setMatchResult(result);
     setIsModalOpen(true);
   };
 
-  // Definiamo le righe per il grafico UI. 
-  // Nota: Le chiavi devono corrispondere alla logica usata in calculatePairing per mostrare i dati giusti.
   const comparisonRows = [
-    { label: 'Grassezza / Freschezza', foodKey: ['grassezza', 'fat'], wineKey: ['acidita', 'tannicita', 'acidity'], isMixed: true },
-    { label: 'Sapidità / Morbidezza', foodKey: ['sapidita', 'saltiness'], wineKey: ['morbidezza', 'morbidezza'], isMixed: false },
-    { label: 'Dolcezza / Dolcezza', foodKey: ['dolcezza', 'sweetness'], wineKey: ['dolcezza', 'sweetness'], isMixed: false },
-    { label: 'Speziatura / Intensità', foodKey: ['speziatura', 'speziatura'], wineKey: ['intensita', 'intensita'], isMixed: false },
-    { label: 'Persistenza / Persistenza', foodKey: ['persistenza', 'persistenza'], wineKey: ['persistenza', 'persistenza'], isMixed: false },
+    { label: 'Grassezza / Freschezza', foodKey: ['grassezza', 'fat'], wineKey: ['acidita', 'tannicita'], isMixed: true },
+    { label: 'Sapidità / Morbidezza', foodKey: ['sapidita', 'saltiness'], wineKey: ['morbidezza'], isMixed: false },
+    { label: 'Dolcezza / Dolcezza', foodKey: ['dolcezza', 'sweetness'], wineKey: ['dolcezza'], isMixed: false },
+    { label: 'Speziatura / Intensità', foodKey: ['speziatura', 'speziatura'], wineKey: ['intensita'], isMixed: false },
+    { label: 'Persistenza / Persistenza', foodKey: ['persistenza', 'persistenza'], wineKey: ['persistenza'], isMixed: false },
   ];
 
   return (
@@ -187,7 +177,7 @@ function PairingEngine() {
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Vino</label>
               <select value={selectedWineId} onChange={(e) => setSelectedWineId(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm font-medium">
                 <option value="">-- Scegli un vino --</option>
-                {wines.map(w => <option key={w.id} value={w.id}>{w.wine_name}</option>)}
+                {wines.map(w => <option key={w.id} value={w.id}>{w.nome_vino}</option>)}
               </select>
             </div>
             <div className="text-left">
@@ -199,10 +189,10 @@ function PairingEngine() {
             </div>
             <button 
               onClick={calculatePairing} 
-              disabled={!selectedWineId || !selectedFoodId} 
+              disabled={!selectedWineId || !selectedFoodId || loading} 
               className="w-full bg-red-800 text-white py-4 rounded-2xl font-bold text-lg shadow-md active:scale-95 transition-all disabled:opacity-50"
             >
-              Analizza Armonia
+              {loading ? 'Sintonizzando...' : 'Analizza Armonia'}
             </button>
           </div>
 
@@ -215,18 +205,14 @@ function PairingEngine() {
               
               <div className="space-y-5">
                 {comparisonRows.map((row, idx) => {
-                  const wine = wines.find(w => w.id === selectedWineId);
                   const food = foods.find(f => f.id === selectedFoodId);
                   const foodVal = getVal(food, ...row.foodKey);
                   
                   let wineVal = 0;
                   if (row.isMixed) {
-                    // Se è la riga della grassezza, facciamo la media tra acidità e tannicità
-                    wineVal = (getVal(wine, row.wineKey[0], row.wineKey[1]) + getVal(wine, row.wineKey[0], row.wineKey[1])) / 2;
-                    // Nota: per semplicità di visualizzazione qui prendiamo la media se il DB non ha un campo "freschezza" unico
-                    // In un'app reale, useresti una funzione dedicata per la media dei valori vino.
+                    wineVal = (getVal(wineSensoryData, row.wineKey[0]) + getVal(wineSensoryData, row.wineKey[1])) / 2;
                   } else {
-                    wineVal = getVal(wine, ...row.wineKey);
+                    wineVal = getVal(wineSensoryData, ...row.wineKey);
                   }
                   
                   return (
@@ -250,11 +236,7 @@ function PairingEngine() {
         </div>
       </div>
 
-      <PairingModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        result={matchResult} 
-      />
+      <PairingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} result={matchResult} />
     </div>
   );
 }
