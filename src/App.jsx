@@ -31,22 +31,8 @@ const MainLayout = ({ children, setActiveTab, activeTab, user, onLogout, userNam
       </div>
     </header>
 
-    {/* MAIN: Aggiunto padding bottom per non coprire i contenuti con la nav */}
+    {/* MAIN: Padding bottom per la nav */}
     <main className="flex-grow pb-24">{children}</main>
-
-    {/* FOOTER: Riprogettato per essere un "sigillo di qualità" */}
-    <footer className="bg-white py-12 border-t border-gray-100 text-center px-6 mt-auto">
-      <div className="max-w-xs mx-auto">
-        <div className="text-wine-red font-black text-lg tracking-tighter mb-2">WineLink</div>
-        <p className="text-gray-400 text-[10px] font-medium uppercase tracking-widest mb-4">
-          L'eccellenza del vino, <br/> a portata di touch.
-        </p>
-        <div className="h-px w-8 bg-wine-yellow mx-auto mb-4"></div>
-        <p className="text-gray-300 text-[9px] uppercase tracking-tighter font-bold">
-          &copy; {new Date().getFullYear()} WineLink Project <br/> Design for Sommelier
-        </p>
-      </div>
-    </footer>
 
     {/* NAV: Più moderna con effetto blur */}
     <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-2 py-3 flex justify-around items-center shadow-[0_-10px_25px_rgba(0,0,0,0.05)] z-50">
